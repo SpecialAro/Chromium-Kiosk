@@ -22,8 +22,8 @@
 #
 # Usage: sudo ./ha-chromium-kiosk-setup.sh {install|uninstall}
 #               install - Installs the kiosk setup
-#               uninstall - Uninstalls the kiosk setup 
-#                                                
+#               uninstall - Uninstalls the kiosk setup
+#
 # Note: This script is provided as-is without any warranty. Use at your own risk.
 ###################################################################################
 
@@ -127,10 +127,22 @@ uninstall_package() {
 # Install the necessary packages
 # Keep track of the installed packages for later removal
 install_packages() {
+    # Check if kiosk configuration directory already exists
+    if [ -d "$KIOSK_CONFIG_DIR" ]; then
+        echo "Existing kiosk configuration directory found at $KIOSK_CONFIG_DIR"
+        prompt_user backup_kiosk_config "Do you want to backup the existing kiosk configuration? (Y/n)" "Y"
+        if [[ $backup_kiosk_config =~ ^[Yy]$ ]]; then
+            echo "Backing up existing kiosk configuration..."
+            backup_dir="$KIOSK_CONFIG_DIR.backup.$(date +%Y%m%d%H%M%S)"
+            cp -r "$KIOSK_CONFIG_DIR" "$backup_dir"
+            echo "Backup created at $backup_dir"
+        fi
+    fi
+
     # Create the kiosk configuration directory
     sudo -u $KIOSK_USER mkdir -p "$KIOSK_CONFIG_DIR"
-    
-    # Install the necessary packages and keep track of what was installed 
+
+    # Install the necessary packages and keep track of what was installed
     missing_pkgs=()
 
     echo "Checking required packages..."
@@ -178,22 +190,25 @@ uninstall_packages() {
     # Check if the installed-packages file exists
     if [ -f "$KIOSK_CONFIG_DIR/installed-packages" ]; then
         installed_packages=$(< "$KIOSK_CONFIG_DIR/installed-packages")
-        
+
         if [ -n "$installed_packages" ]; then
             echo "Removing installed packages..."
-            
-            # Uninstall the packages and handle errors
-            if ! apt-get purge -y $installed_packages; then
-                echo "Failed to purge some of the installed packages."
-                exit 1
+
+            # Uninstall the packages one by one to handle errors better
+            for pkg in $installed_packages; do
+                echo "Removing package: $pkg"
+                if ! apt-get purge -y "$pkg"; then
+                    echo "Warning: Failed to purge package: $pkg. Continuing with other packages."
+                fi
+            done
+
+            # Run autoremove to clean up dependencies
+            echo "Removing unnecessary dependencies..."
+            if ! apt-get autoremove -y; then
+                echo "Warning: Failed to autoremove some unnecessary packages."
             fi
 
-            if ! apt-get autoremove -y; then
-                echo "Failed to autoremove some unnecessary packages."
-                exit 1
-            fi
-            
-            echo "Packages removed successfully."
+            echo "Package removal process completed."
         else
             echo "No packages to remove."
         fi
@@ -257,16 +272,38 @@ prompt_user() {
     local var_name=$1
     local prompt_message=$2
     local default_value=$3
-    
+
     read -p "$prompt_message [$default_value]: " value
     value=${value:-$default_value}
-    
+
     if [[ -z "$value" && -z "$default_value" ]]; then
         echo "Error: $var_name is required. Please run the script again."
         exit 1
     fi
-    
+
     eval $var_name=\$value
+}
+
+# Check and backup existing configuration files
+check_backup_config() {
+    local config_file=$1
+    local config_desc=$2
+
+    if [ -f "$config_file" ]; then
+        echo "Existing $config_desc configuration found."
+        prompt_user backup_config "Do you want to backup the existing $config_desc configuration? (Y/n)" "Y"
+        if [[ $backup_config =~ ^[Yy]$ ]]; then
+            echo "Backing up existing $config_desc configuration..."
+            cp "$config_file" "$config_file.backup.$(date +%Y%m%d%H%M%S)"
+            echo "Backup created at $config_file.backup.$(date +%Y%m%d%H%M%S)"
+        fi
+
+        prompt_user overwrite_config "Do you want to overwrite the existing $config_desc configuration? (Y/n)" "Y"
+        if [[ ! $overwrite_config =~ ^[Yy]$ ]]; then
+            echo "Installation canceled. Existing $config_desc configuration will not be modified."
+            exit 0
+        fi
+    fi
 }
 
 # Install the kiosk setup
@@ -287,6 +324,11 @@ install_kiosk() {
     echo "Your Home Assistant dashboard will be displayed at: $KIOSK_URL"
     echo "Setting up Chromium Kiosk Mode for Home Assistant URL:$KIOSK_URL"
 
+    # Check for existing auto-login configuration
+    if [ -f "/etc/systemd/system/getty@tty1.service.d/override.conf" ]; then
+        check_backup_config "/etc/systemd/system/getty@tty1.service.d/override.conf" "auto-login"
+    fi
+
     # Configure auto login
     echo "Configuring auto-login for the kiosk user..."
     mkdir -p /etc/systemd/system/getty@tty1.service.d
@@ -303,6 +345,16 @@ EOF
     # Configure Openbox
     echo "Configuring Openbox for the kiosk user..."
     sudo -u $KIOSK_USER mkdir -p $OPENBOX_CONFIG_DIR
+
+    # Check for existing Openbox configuration
+    if [ -f "$OPENBOX_CONFIG_DIR/autostart" ]; then
+        check_backup_config "$OPENBOX_CONFIG_DIR/autostart" "Openbox"
+    fi
+
+    # Check for existing kiosk startup script
+    if [ -f "/usr/local/bin/ha-chromium-kiosk.sh" ]; then
+        check_backup_config "/usr/local/bin/ha-chromium-kiosk.sh" "kiosk startup script"
+    fi
 
     # Create the kiosk startup script
     echo "Creating the kiosk startup script..."
@@ -346,6 +398,11 @@ EOF
 
     echo "Configuring Openbox to start the kiosk script..."
     echo "/usr/local/bin/ha-chromium-kiosk.sh &" > $OPENBOX_CONFIG_DIR/autostart
+
+    # Check for existing systemd service
+    if [ -f "/etc/systemd/system/ha-chromium-kiosk.service" ]; then
+        check_backup_config "/etc/systemd/system/ha-chromium-kiosk.service" "systemd service"
+    fi
 
     # Create the systemd service
     echo "Creating the systemd service..."
@@ -404,17 +461,52 @@ uninstall_kiosk() {
         exit 1
     fi
 
+    # Function to check for backups and offer to restore them
+    check_restore_backup() {
+        local file_path=$1
+        local desc=$2
+
+        # Find the most recent backup
+        local backup_files=( "$file_path.backup."* )
+
+        if [ ${#backup_files[@]} -gt 0 ] && [ -f "${backup_files[-1]}" ]; then
+            local latest_backup="${backup_files[-1]}"
+            echo "Backup found for $desc: $latest_backup"
+            prompt_user restore_backup "Do you want to restore this backup before removing the current file? (Y/n)" "Y"
+
+            if [[ $restore_backup =~ ^[Yy]$ ]]; then
+                echo "Restoring backup for $desc..."
+                cp "$latest_backup" "$file_path"
+                echo "Backup restored."
+                return 0
+            fi
+        fi
+
+        return 1
+    }
+
     # Remove the systemd service file
     echo "Removing the systemd service file..."
-    rm -f /etc/systemd/system/ha-chromium-kiosk.service
+    if [[ -f /etc/systemd/system/ha-chromium-kiosk.service ]]; then
+        check_restore_backup "/etc/systemd/system/ha-chromium-kiosk.service" "systemd service"
+        rm -f /etc/systemd/system/ha-chromium-kiosk.service
+    else
+        echo "No systemd service file found."
+    fi
 
     # Remove the startup script
     echo "Removing the kiosk startup script..."
-    rm -f /usr/local/bin/ha-chromium-kiosk.sh
+    if [[ -f /usr/local/bin/ha-chromium-kiosk.sh ]]; then
+        check_restore_backup "/usr/local/bin/ha-chromium-kiosk.sh" "kiosk startup script"
+        rm -f /usr/local/bin/ha-chromium-kiosk.sh
+    else
+        echo "No kiosk startup script found."
+    fi
 
     # Remove the autostart entry for Openbox
     echo "Removing Openbox autostart configuration..."
     if [[ -f $OPENBOX_CONFIG_DIR/autostart ]]; then
+        check_restore_backup "$OPENBOX_CONFIG_DIR/autostart" "Openbox autostart"
         rm -f $OPENBOX_CONFIG_DIR/autostart
     else
         echo "No Openbox autostart configuration found."
@@ -423,6 +515,7 @@ uninstall_kiosk() {
     # Remove the auto-login configuration
     echo "Removing auto-login configuration..."
     if [[ -f /etc/systemd/system/getty@tty1.service.d/override.conf ]]; then
+        check_restore_backup "/etc/systemd/system/getty@tty1.service.d/override.conf" "auto-login"
         rm -f /etc/systemd/system/getty@tty1.service.d/override.conf
     else
         echo "No auto-login configuration found."
@@ -432,19 +525,36 @@ uninstall_kiosk() {
     echo "Reloading systemd configuration..."
     systemctl daemon-reload
 
+    # Check for kiosk configuration directory backups
+    backup_dirs=( "$KIOSK_CONFIG_DIR.backup."* )
+    if [ ${#backup_dirs[@]} -gt 0 ] && [ -d "${backup_dirs[-1]}" ]; then
+        latest_backup="${backup_dirs[-1]}"
+        echo "Backup found for kiosk configuration directory: $latest_backup"
+        prompt_user restore_kiosk_config "Do you want to restore this backup before proceeding? (Y/n)" "Y"
+
+        if [[ $restore_kiosk_config =~ ^[Yy]$ ]]; then
+            echo "Restoring backup for kiosk configuration directory..."
+            if [ -d "$KIOSK_CONFIG_DIR" ]; then
+                rm -rf "$KIOSK_CONFIG_DIR"
+            fi
+            cp -r "$latest_backup" "$KIOSK_CONFIG_DIR"
+            echo "Backup restored."
+        fi
+    fi
+
     # Optionally remove installed packages
     if [[ -f "$KIOSK_CONFIG_DIR/installed-packages" ]]; then
         installed_packages=$(< "$KIOSK_CONFIG_DIR/installed-packages")
         echo "The following packages were installed:"
         echo "$installed_packages"
-        
+
         prompt_user remove_packages "Do you want to remove the installed packages? (Y/n)" "Y"
-        
-        if [[ $remove_packages =~ ^[Yn]?$ ]]; then
+
+        if [[ $remove_packages =~ ^[Yy]$ ]]; then
             echo "Removing installed packages..."
             for pkg in $installed_packages; do
                 uninstall_package "$pkg"
-                
+
                 # Check if package was removed successfully
                 if [[ $? -ne 0 ]]; then
                     echo "Failed to remove package: $pkg. Please check manually."
