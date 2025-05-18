@@ -6,39 +6,61 @@ This document explains how to test the HA-Chromium-Kiosk setup script using the 
 
 The testing framework consists of:
 
-1. **test-kiosk-script.sh**: Creates and manages a VirtualBox VM for testing
+1. **qemu-test-kiosk.sh**: Creates and manages a QEMU VM for testing
 2. **run-kiosk-tests.sh**: Automates various test scenarios
 3. **kiosk-test-plan.md**: Outlines test cases and expected results
 
 ## Prerequisites
 
-- VirtualBox installed on your system
+- QEMU installed on your system
+  - On macOS: `brew install qemu`
+  - On Linux: `sudo apt-get install qemu-system-x86`
 - Bash shell
 - Internet connection (to download Debian ISO)
 - Sufficient disk space (~20GB for VM)
 
-## Testing with VirtualBox VM
+## Testing with QEMU VM
 
 ### Setting up the Test Environment
 
-1. Create and start a new VM:
+1. Set up the VM disk and download the ISO:
 
 ```bash
-./test-kiosk-script.sh setup
+./qemu-test-kiosk.sh setup
 ```
 
 This will:
 - Download a Debian ISO if not already present
-- Create a new VirtualBox VM
-- Start the VM with the Debian installer
-- Provide instructions for installation
+- Create a new QEMU disk image
 
-2. Complete the Debian installation in the VM:
+2. Start the VM with the installation media:
+
+```bash
+./qemu-test-kiosk.sh install
+```
+
+This will:
+- Start the VM with the Debian installer
+- Forward SSH to port 2222 on your host machine
+
+3. Complete the Debian installation in the VM:
    - Install a minimal system without desktop environment
    - Create a user (e.g., username: test, password: test)
    - When asked for software selection, only select "SSH server" and "standard system utilities"
 
-3. After installation, log in to the VM and prepare it for testing:
+4. After installation, start the VM and log in:
+
+```bash
+./qemu-test-kiosk.sh start
+```
+
+5. Connect to the VM via SSH:
+
+```bash
+ssh -p 2222 test@localhost
+```
+
+6. Prepare the VM for testing:
 
 ```bash
 # Update the system
@@ -54,10 +76,10 @@ git clone https://github.com/kunaalm/HA-Chromium-Kiosk.git
 cd HA-Chromium-Kiosk
 ```
 
-4. Create a snapshot of the clean VM state:
+7. Create a snapshot of the clean VM state:
 
 ```bash
-./test-kiosk-script.sh snapshot
+./qemu-test-kiosk.sh snapshot
 ```
 
 ### Running Tests

@@ -4,9 +4,10 @@ This document outlines the test plan for the HA-Chromium-Kiosk setup script usin
 
 ## Test Environment
 
-- VirtualBox VM running Debian 12
+- QEMU VM running Debian 12
 - 2GB RAM, 2 CPU cores, 20GB disk
 - Clean installation without desktop environment
+- SSH forwarded to port 2222 on the host machine
 
 ## Test Scenarios
 
@@ -25,7 +26,7 @@ This document outlines the test plan for the HA-Chromium-Kiosk setup script usin
    - Hide cursor: `Y` (default)
 4. Choose to reboot: `Y`
 
-**Expected Result**: 
+**Expected Result**:
 - Script completes without errors
 - System reboots and automatically logs in as the kiosk user
 - Chromium starts in kiosk mode and attempts to connect to the specified Home Assistant instance
