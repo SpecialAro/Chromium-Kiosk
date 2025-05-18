@@ -26,7 +26,7 @@ The testing framework consists of:
 1. Set up the VM disk and download the ISO:
 
 ```bash
-./qemu-test-kiosk.sh setup
+./tests/qemu-test-kiosk.sh setup
 ```
 
 This will:
@@ -36,7 +36,7 @@ This will:
 2. Start the VM with the installation media:
 
 ```bash
-./qemu-test-kiosk.sh install
+./tests/qemu-test-kiosk.sh install
 ```
 
 This will:
@@ -51,7 +51,7 @@ This will:
 4. After installation, start the VM and log in:
 
 ```bash
-./qemu-test-kiosk.sh start
+./tests/qemu-test-kiosk.sh start
 ```
 
 5. Connect to the VM via SSH:
@@ -79,7 +79,7 @@ cd HA-Chromium-Kiosk
 7. Create a snapshot of the clean VM state:
 
 ```bash
-./qemu-test-kiosk.sh snapshot
+./tests/qemu-test-kiosk.sh snapshot
 ```
 
 ### Running Tests
@@ -91,7 +91,7 @@ Follow the test cases outlined in `kiosk-test-plan.md`. For each test:
 1. Revert to the clean snapshot:
 
 ```bash
-./test-kiosk-script.sh revert
+./tests/test-kiosk-script.sh revert
 ```
 
 2. Run the specific test case

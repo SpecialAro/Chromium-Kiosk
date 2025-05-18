@@ -132,7 +132,7 @@ prepare_test_environment() {
     print_message "$YELLOW" "2. Install git: sudo apt-get update && sudo apt-get install -y git"
     print_message "$YELLOW" "3. Clone your repository: git clone https://github.com/kunaalm/HA-Chromium-Kiosk.git"
     print_message "$YELLOW" "4. Run the script: cd HA-Chromium-Kiosk && sudo ./ha-chromium-kiosk-setup.sh install"
-    print_message "$YELLOW" "5. After testing, create a snapshot with: ./qemu-test-kiosk.sh snapshot"
+    print_message "$YELLOW" "5. After testing, create a snapshot with: ./tests/qemu-test-kiosk.sh snapshot"
 }
 
 # Function to display help
