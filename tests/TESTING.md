@@ -6,9 +6,10 @@ This document explains how to test the HA-Chromium-Kiosk setup script using the 
 
 The testing framework consists of:
 
-1. **qemu-test-kiosk.sh**: Creates and manages a QEMU VM for testing
-2. **run-kiosk-tests.sh**: Automates various test scenarios
-3. **kiosk-test-plan.md**: Outlines test cases and expected results
+1. **qemu-test-kiosk.sh**: Creates and manages a QEMU VM for testing (Linux)
+2. **qemu-test-kiosk-mac.sh**: macOS-specific version of the QEMU testing script
+3. **run-kiosk-tests.sh**: Automates various test scenarios
+4. **kiosk-test-plan.md**: Outlines test cases and expected results
 
 ## Prerequisites
 
@@ -23,15 +24,13 @@ The testing framework consists of:
 
 ### Setting up the Test Environment
 
+#### On Linux:
+
 1. Set up the VM disk and download the ISO:
 
 ```bash
 ./tests/qemu-test-kiosk.sh setup
 ```
-
-This will:
-- Download a Debian ISO if not already present
-- Create a new QEMU disk image
 
 2. Start the VM with the installation media:
 
@@ -39,7 +38,27 @@ This will:
 ./tests/qemu-test-kiosk.sh install
 ```
 
-This will:
+#### On macOS:
+
+1. Set up the VM disk and download the ISO:
+
+```bash
+./tests/qemu-test-kiosk-mac.sh setup
+```
+
+2. Start the VM with the installation media:
+
+```bash
+./tests/qemu-test-kiosk-mac.sh install
+```
+
+The macOS script uses software emulation (TCG) instead of hardware acceleration, which may result in slower performance but works without KVM.
+
+#### Common Steps:
+
+These steps will:
+- Download a Debian ISO if not already present
+- Create a new QEMU disk image
 - Start the VM with the Debian installer
 - Forward SSH to port 2222 on your host machine
 
@@ -48,10 +67,14 @@ This will:
    - Create a user (e.g., username: test, password: test)
    - When asked for software selection, only select "SSH server" and "standard system utilities"
 
-4. After installation, start the VM and log in:
+4. After installation, start the VM and log in (use the appropriate script for your OS):
 
 ```bash
+# On Linux
 ./tests/qemu-test-kiosk.sh start
+
+# On macOS
+./tests/qemu-test-kiosk-mac.sh start
 ```
 
 5. Connect to the VM via SSH:
@@ -76,10 +99,14 @@ git clone https://github.com/kunaalm/HA-Chromium-Kiosk.git
 cd HA-Chromium-Kiosk
 ```
 
-7. Create a snapshot of the clean VM state:
+7. Create a snapshot of the clean VM state (use the appropriate script for your OS):
 
 ```bash
+# On Linux
 ./tests/qemu-test-kiosk.sh snapshot
+
+# On macOS
+./tests/qemu-test-kiosk-mac.sh snapshot
 ```
 
 ### Running Tests
@@ -88,10 +115,14 @@ cd HA-Chromium-Kiosk
 
 Follow the test cases outlined in `kiosk-test-plan.md`. For each test:
 
-1. Revert to the clean snapshot:
+1. Revert to the clean snapshot (use the appropriate script for your OS):
 
 ```bash
-./tests/test-kiosk-script.sh revert
+# On Linux
+./tests/qemu-test-kiosk.sh revert
+
+# On macOS
+./tests/qemu-test-kiosk-mac.sh revert
 ```
 
 2. Run the specific test case
@@ -103,13 +134,13 @@ The `run-kiosk-tests.sh` script automates some of the test scenarios:
 
 ```bash
 # Run all automated tests
-./run-kiosk-tests.sh all
+./tests/run-kiosk-tests.sh all
 
 # Prepare the test environment
-./run-kiosk-tests.sh prepare
+./tests/run-kiosk-tests.sh prepare
 
 # Clean up after testing
-./run-kiosk-tests.sh cleanup
+./tests/run-kiosk-tests.sh cleanup
 ```
 
 ## Test Cases
@@ -139,9 +170,10 @@ See `kiosk-test-plan.md` for detailed test cases and expected results.
 
 ### VM Issues
 
-- **VM fails to start**: Ensure VirtualBox is properly installed and has sufficient permissions
-- **Network connectivity issues**: Check VirtualBox network settings
+- **VM fails to start**: Ensure QEMU is properly installed and has sufficient permissions
+- **Network connectivity issues**: Check QEMU network settings
 - **Snapshot errors**: Delete corrupted snapshots and create new ones
+- **KVM errors on macOS**: Use the macOS-specific script which uses software emulation instead
 
 ### Script Testing Issues
 
