@@ -8,8 +8,10 @@ set -e
 
 # Configuration variables
 VM_NAME="HA-Kiosk-Test"
-ISO_URL="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.5.0-amd64-netinst.iso"
-ISO_FILE="debian-12.5.0-amd64-netinst.iso"
+DEBIAN_CLOUD_URL="http://cloud.debian.org/images/cloud/bookworm/latest"
+VM_IMAGE_URL="$DEBIAN_CLOUD_URL/debian-12-nocloud-amd64.qcow2"
+VM_IMAGE_FILE="debian-nocloud-amd64.qcow2"
+VM_VDI_FILE="debian-nocloud-amd64.vdi"
 VM_MEMORY=2048
 VM_DISK_SIZE=20000
 VM_CPUS=2
@@ -36,14 +38,23 @@ check_virtualbox() {
     print_message "$GREEN" "VirtualBox is installed."
 }
 
-# Function to download Debian ISO if not already downloaded
-download_iso() {
-    if [ ! -f "$ISO_FILE" ]; then
-        print_message "$YELLOW" "Downloading Debian ISO..."
-        curl -L -o "$ISO_FILE" "$ISO_URL"
+# Function to download Debian VM image if not already downloaded
+download_vm_image() {
+    if [ ! -f "$VM_IMAGE_FILE" ]; then
+        print_message "$YELLOW" "Downloading Debian VM image..."
+        curl -L -o "$VM_IMAGE_FILE" "$VM_IMAGE_URL"
         print_message "$GREEN" "Download complete."
     else
-        print_message "$GREEN" "Debian ISO already downloaded."
+        print_message "$GREEN" "Debian VM image already downloaded."
+    fi
+
+    # Convert QCOW2 to VDI format for VirtualBox if needed
+    if [ ! -f "$VM_VDI_FILE" ]; then
+        print_message "$YELLOW" "Converting QCOW2 image to VDI format..."
+        VBoxManage convertfromraw --format VDI "$VM_IMAGE_FILE" "$VM_VDI_FILE"
+        print_message "$GREEN" "Conversion complete."
+    else
+        print_message "$GREEN" "VDI image already exists."
     fi
 }
 
@@ -65,23 +76,20 @@ create_vm() {
     fi
 
     print_message "$YELLOW" "Creating new VM '$VM_NAME'..."
-    
+
     # Create VM
     VBoxManage createvm --name "$VM_NAME" --ostype "Debian_64" --register
-    
+
     # Set memory and network
     VBoxManage modifyvm "$VM_NAME" --memory "$VM_MEMORY" --cpus "$VM_CPUS" --acpi on --boot1 dvd
     VBoxManage modifyvm "$VM_NAME" --nic1 nat
-    
-    # Create and attach storage
-    VBoxManage createhd --filename "$HOME/VirtualBox VMs/$VM_NAME/$VM_NAME.vdi" --size "$VM_DISK_SIZE"
+
+    # Create storage controller
     VBoxManage storagectl "$VM_NAME" --name "SATA Controller" --add sata --controller IntelAHCI
-    VBoxManage storageattach "$VM_NAME" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "$HOME/VirtualBox VMs/$VM_NAME/$VM_NAME.vdi"
-    
-    # Attach DVD drive with Debian ISO
-    VBoxManage storagectl "$VM_NAME" --name "IDE Controller" --add ide
-    VBoxManage storageattach "$VM_NAME" --storagectl "IDE Controller" --port 0 --device 0 --type dvddrive --medium "$(pwd)/$ISO_FILE"
-    
+
+    # Attach the pre-built Debian VM image
+    VBoxManage storageattach "$VM_NAME" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "$(pwd)/$VM_VDI_FILE"
+
     print_message "$GREEN" "VM created successfully."
 }
 
@@ -137,7 +145,7 @@ show_help() {
 case "$1" in
     setup)
         check_virtualbox
-        download_iso
+        download_vm_image
         create_vm
         start_vm
         prepare_test_environment

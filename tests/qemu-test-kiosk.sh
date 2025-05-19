@@ -1,15 +1,24 @@
 #!/bin/bash
 ###################################################################################
-# HA Chromium Kiosk QEMU Test Script
+# HA Chromium Kiosk QEMU Test Script (Unified for Linux and macOS)
 # This script sets up a QEMU VM to test the HA-Chromium-Kiosk setup script
 ###################################################################################
 
 set -e
 
+# Detect operating system
+OS="$(uname -s)"
+case "${OS}" in
+    Linux*)     PLATFORM="linux";;
+    Darwin*)    PLATFORM="macos";;
+    *)          echo "Unsupported operating system: ${OS}"; exit 1;;
+esac
+
 # Configuration variables
 VM_NAME="ha-kiosk-test"
-ISO_URL="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.5.0-amd64-netinst.iso"
-ISO_FILE="debian-12.5.0-amd64-netinst.iso"
+DEBIAN_CLOUD_URL="http://cloud.debian.org/images/cloud/bookworm/latest"
+VM_IMAGE_URL="$DEBIAN_CLOUD_URL/debian-12-nocloud-amd64.qcow2"
+VM_IMAGE_FILE="debian-nocloud-amd64.qcow2"
 DISK_IMG="${VM_NAME}.qcow2"
 DISK_SIZE="20G"
 MEMORY="2G"
@@ -32,39 +41,47 @@ print_message() {
 check_qemu() {
     if ! command -v qemu-img &> /dev/null || ! command -v qemu-system-x86_64 &> /dev/null; then
         print_message "$RED" "QEMU is not installed. Please install QEMU first."
-        print_message "$YELLOW" "On macOS, you can install it with: brew install qemu"
+        if [ "$PLATFORM" = "macos" ]; then
+            print_message "$YELLOW" "On macOS, you can install it with: brew install qemu"
+        else
+            print_message "$YELLOW" "On Linux, you can install it with: sudo apt-get install qemu-system-x86"
+        fi
         exit 1
     fi
     print_message "$GREEN" "QEMU is installed."
 }
 
-# Function to download Debian ISO if not already downloaded
-download_iso() {
-    if [ ! -f "$ISO_FILE" ]; then
-        print_message "$YELLOW" "Downloading Debian ISO..."
-        curl -L -o "$ISO_FILE" "$ISO_URL"
+# Function to download Debian VM image if not already downloaded
+download_vm_image() {
+    if [ ! -f "$VM_IMAGE_FILE" ]; then
+        print_message "$YELLOW" "Downloading Debian VM image..."
+        curl -L -o "$VM_IMAGE_FILE" "$VM_IMAGE_URL"
         print_message "$GREEN" "Download complete."
     else
-        print_message "$GREEN" "Debian ISO already downloaded."
+        print_message "$GREEN" "Debian VM image already downloaded."
     fi
 }
 
-# Function to create a disk image
-create_disk() {
+# Function to prepare the VM disk image
+prepare_disk() {
     if [ ! -f "$DISK_IMG" ]; then
-        print_message "$YELLOW" "Creating disk image..."
-        qemu-img create -f qcow2 "$DISK_IMG" "$DISK_SIZE"
-        print_message "$GREEN" "Disk image created."
+        print_message "$YELLOW" "Preparing VM disk image..."
+        cp "$VM_IMAGE_FILE" "$DISK_IMG"
+        # Resize the disk if needed
+        qemu-img resize "$DISK_IMG" "$DISK_SIZE"
+        print_message "$GREEN" "VM disk image prepared."
     else
-        print_message "$YELLOW" "Disk image already exists. Do you want to recreate it? (y/n)"
+        print_message "$YELLOW" "VM disk image already exists. Do you want to recreate it? (y/n)"
         read -r response
         if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-            print_message "$YELLOW" "Recreating disk image..."
+            print_message "$YELLOW" "Recreating VM disk image..."
             rm -f "$DISK_IMG"
-            qemu-img create -f qcow2 "$DISK_IMG" "$DISK_SIZE"
-            print_message "$GREEN" "Disk image recreated."
+            cp "$VM_IMAGE_FILE" "$DISK_IMG"
+            # Resize the disk if needed
+            qemu-img resize "$DISK_IMG" "$DISK_SIZE"
+            print_message "$GREEN" "VM disk image recreated."
         else
-            print_message "$GREEN" "Using existing disk image."
+            print_message "$GREEN" "Using existing VM disk image."
         fi
     fi
 }
@@ -89,49 +106,78 @@ list_snapshots() {
     qemu-img snapshot -l "$DISK_IMG"
 }
 
-# Function to start the VM for installation
-start_vm_install() {
-    print_message "$YELLOW" "Starting VM for installation..."
-    print_message "$YELLOW" "This will open a new window with the Debian installer."
-    print_message "$YELLOW" "Follow the installation process and then create a snapshot."
-    
-    qemu-system-x86_64 \
-        -m "$MEMORY" \
-        -smp "$CPUS" \
-        -drive file="$DISK_IMG",format=qcow2 \
-        -cdrom "$ISO_FILE" \
-        -boot d \
-        -enable-kvm \
-        -device virtio-net,netdev=net0 \
-        -netdev user,id=net0,hostfwd=tcp::2222-:22 \
-        -name "$VM_NAME" \
-        -display default
+# Function to start the VM for the first time
+start_vm_first_time() {
+    print_message "$YELLOW" "Starting VM for the first time..."
+    print_message "$YELLOW" "This will open a new window with the Debian VM."
+    print_message "$YELLOW" "The default login for the nocloud image is 'root' with no password (passwordless login)."
+    print_message "$YELLOW" "After setting up the VM, create a snapshot."
+
+    # Platform-specific VM launch options
+    if [ "$PLATFORM" = "macos" ]; then
+        # macOS uses software emulation (TCG) instead of KVM
+        qemu-system-x86_64 \
+            -m "$MEMORY" \
+            -smp "$CPUS" \
+            -drive file="$DISK_IMG",format=qcow2 \
+            -accel tcg,thread=multi \
+            -device virtio-net,netdev=net0 \
+            -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+            -name "$VM_NAME" \
+            -display default
+    else
+        # Linux uses KVM for hardware acceleration
+        qemu-system-x86_64 \
+            -m "$MEMORY" \
+            -smp "$CPUS" \
+            -drive file="$DISK_IMG",format=qcow2 \
+            -enable-kvm \
+            -device virtio-net,netdev=net0 \
+            -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+            -name "$VM_NAME" \
+            -display default
+    fi
 }
 
 # Function to start the VM from disk
 start_vm() {
     print_message "$YELLOW" "Starting VM from disk..."
     print_message "$YELLOW" "SSH will be forwarded to port 2222 on your host."
-    print_message "$YELLOW" "You can connect with: ssh -p 2222 user@localhost"
-    
-    qemu-system-x86_64 \
-        -m "$MEMORY" \
-        -smp "$CPUS" \
-        -drive file="$DISK_IMG",format=qcow2 \
-        -enable-kvm \
-        -device virtio-net,netdev=net0 \
-        -netdev user,id=net0,hostfwd=tcp::2222-:22 \
-        -name "$VM_NAME" \
-        -display default
+    print_message "$YELLOW" "You can connect with: ssh -p 2222 root@localhost"
+
+    # Platform-specific VM launch options
+    if [ "$PLATFORM" = "macos" ]; then
+        # macOS uses software emulation (TCG) instead of KVM
+        qemu-system-x86_64 \
+            -m "$MEMORY" \
+            -smp "$CPUS" \
+            -drive file="$DISK_IMG",format=qcow2 \
+            -accel tcg,thread=multi \
+            -device virtio-net,netdev=net0 \
+            -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+            -name "$VM_NAME" \
+            -display default
+    else
+        # Linux uses KVM for hardware acceleration
+        qemu-system-x86_64 \
+            -m "$MEMORY" \
+            -smp "$CPUS" \
+            -drive file="$DISK_IMG",format=qcow2 \
+            -enable-kvm \
+            -device virtio-net,netdev=net0 \
+            -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+            -name "$VM_NAME" \
+            -display default
+    fi
 }
 
 # Function to prepare the test environment
 prepare_test_environment() {
     print_message "$YELLOW" "Once the VM is installed and running, you need to:"
-    print_message "$YELLOW" "1. Log in to the VM"
-    print_message "$YELLOW" "2. Install git: sudo apt-get update && sudo apt-get install -y git"
+    print_message "$YELLOW" "1. Log in to the VM (username: root, no password)"
+    print_message "$YELLOW" "2. Install git: apt-get update && apt-get install -y git"
     print_message "$YELLOW" "3. Clone your repository: git clone https://github.com/kunaalm/HA-Chromium-Kiosk.git"
-    print_message "$YELLOW" "4. Run the script: cd HA-Chromium-Kiosk && sudo ./ha-chromium-kiosk-setup.sh install"
+    print_message "$YELLOW" "4. Run the script: cd HA-Chromium-Kiosk && ./ha-chromium-kiosk-setup.sh install"
     print_message "$YELLOW" "5. After testing, create a snapshot with: ./tests/qemu-test-kiosk.sh snapshot"
 }
 
@@ -141,8 +187,8 @@ show_help() {
     echo "Test the HA-Chromium-Kiosk setup script in a QEMU VM."
     echo ""
     echo "Options:"
-    echo "  setup       Download ISO and create disk image"
-    echo "  install     Start VM with installation media"
+    echo "  setup       Download VM image and prepare disk"
+    echo "  first-boot  Start VM for the first time"
     echo "  start       Start VM from disk"
     echo "  snapshot    Create a snapshot of the current VM state"
     echo "  revert      Revert to the clean snapshot"
@@ -155,12 +201,12 @@ show_help() {
 case "$1" in
     setup)
         check_qemu
-        download_iso
-        create_disk
+        download_vm_image
+        prepare_disk
         ;;
-    install)
+    first-boot)
         check_qemu
-        start_vm_install
+        start_vm_first_time
         prepare_test_environment
         ;;
     start)

@@ -6,8 +6,8 @@ This document explains how to test the HA-Chromium-Kiosk setup script using the 
 
 The testing framework consists of:
 
-1. **qemu-test-kiosk.sh**: Creates and manages a QEMU VM for testing (Linux)
-2. **qemu-test-kiosk-mac.sh**: macOS-specific version of the QEMU testing script
+1. **qemu-test-kiosk.sh**: Creates and manages a QEMU VM for testing (works on both Linux and macOS)
+2. **test-kiosk-script.sh**: Creates and manages a VirtualBox VM for testing
 3. **run-kiosk-tests.sh**: Automates various test scenarios
 4. **kiosk-test-plan.md**: Outlines test cases and expected results
 
@@ -16,71 +16,62 @@ The testing framework consists of:
 - QEMU installed on your system
   - On macOS: `brew install qemu`
   - On Linux: `sudo apt-get install qemu-system-x86`
+- VirtualBox (if using the VirtualBox test script)
 - Bash shell
-- Internet connection (to download Debian ISO)
+- Internet connection (to download Debian cloud images)
 - Sufficient disk space (~20GB for VM)
 
-## Testing with QEMU VM
+## Testing with Virtual Machines
 
 ### Setting up the Test Environment
 
-#### On Linux:
+#### Using QEMU (works on both Linux and macOS):
 
-1. Set up the VM disk and download the ISO:
+1. Set up the VM disk and download the pre-built Debian cloud image:
 
 ```bash
 ./tests/qemu-test-kiosk.sh setup
 ```
 
-2. Start the VM with the installation media:
+2. Start the VM for the first time:
 
 ```bash
-./tests/qemu-test-kiosk.sh install
+./tests/qemu-test-kiosk.sh first-boot
 ```
 
-#### On macOS:
+Note: The script automatically detects your operating system. On macOS, it uses software emulation (TCG) instead of hardware acceleration, which may result in slower performance but works without KVM. On Linux, it uses KVM for better performance.
 
-1. Set up the VM disk and download the ISO:
+#### Using VirtualBox:
+
+1. Set up the VM and download the pre-built Debian cloud image:
 
 ```bash
-./tests/qemu-test-kiosk-mac.sh setup
+./tests/test-kiosk-script.sh setup
 ```
-
-2. Start the VM with the installation media:
-
-```bash
-./tests/qemu-test-kiosk-mac.sh install
-```
-
-The macOS script uses software emulation (TCG) instead of hardware acceleration, which may result in slower performance but works without KVM.
 
 #### Common Steps:
 
 These steps will:
-- Download a Debian ISO if not already present
-- Create a new QEMU disk image
-- Start the VM with the Debian installer
-- Forward SSH to port 2222 on your host machine
+- Download a pre-built Debian nocloud image if not already present (this image allows passwordless root login)
+- Prepare a VM disk image based on the cloud image
+- Start the VM with the pre-built Debian system
+- Forward SSH to port 2222 on your host machine (for QEMU)
 
-3. Complete the Debian installation in the VM:
-   - Install a minimal system without desktop environment
-   - Create a user (e.g., username: test, password: test)
-   - When asked for software selection, only select "SSH server" and "standard system utilities"
+3. Log in to the VM:
+   - For both QEMU and VirtualBox with nocloud image: username `root` with no password (passwordless login)
 
-4. After installation, start the VM and log in (use the appropriate script for your OS):
+4. After logging in, start the VM (use the appropriate script for your OS):
 
 ```bash
-# On Linux
+# For both Linux and macOS
 ./tests/qemu-test-kiosk.sh start
-
-# On macOS
-./tests/qemu-test-kiosk-mac.sh start
 ```
 
-5. Connect to the VM via SSH:
+5. Connect to the VM via SSH (for QEMU):
 
 ```bash
-ssh -p 2222 test@localhost
+# For nocloud image with passwordless root login
+ssh -p 2222 root@localhost
 ```
 
 6. Prepare the VM for testing:
@@ -89,7 +80,7 @@ ssh -p 2222 test@localhost
 # Update the system
 sudo apt-get update && sudo apt-get upgrade -y
 
-# Install git
+# Install git (if not already installed)
 sudo apt-get install -y git
 
 # Clone the repository
@@ -102,11 +93,8 @@ cd HA-Chromium-Kiosk
 7. Create a snapshot of the clean VM state (use the appropriate script for your OS):
 
 ```bash
-# On Linux
+# For both Linux and macOS
 ./tests/qemu-test-kiosk.sh snapshot
-
-# On macOS
-./tests/qemu-test-kiosk-mac.sh snapshot
 ```
 
 ### Running Tests
@@ -118,11 +106,8 @@ Follow the test cases outlined in `kiosk-test-plan.md`. For each test:
 1. Revert to the clean snapshot (use the appropriate script for your OS):
 
 ```bash
-# On Linux
+# For both Linux and macOS
 ./tests/qemu-test-kiosk.sh revert
-
-# On macOS
-./tests/qemu-test-kiosk-mac.sh revert
 ```
 
 2. Run the specific test case
@@ -170,10 +155,12 @@ See `kiosk-test-plan.md` for detailed test cases and expected results.
 
 ### VM Issues
 
-- **VM fails to start**: Ensure QEMU is properly installed and has sufficient permissions
-- **Network connectivity issues**: Check QEMU network settings
+- **VM fails to start**: Ensure QEMU or VirtualBox is properly installed and has sufficient permissions
+- **Network connectivity issues**: Check VM network settings
 - **Snapshot errors**: Delete corrupted snapshots and create new ones
 - **KVM errors on macOS**: Use the macOS-specific script which uses software emulation instead
+- **Cloud image download fails**: Check your internet connection or try downloading the image manually from http://cloud.debian.org/images/cloud/bookworm/latest/
+- **Image conversion errors**: For VirtualBox, ensure you have sufficient permissions to convert the image format
 
 ### Script Testing Issues
 
