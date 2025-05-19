@@ -2,6 +2,12 @@
 
 This script sets up a light Chromium-based kiosk mode on a Debian server specifically for Home Assistant dashboards, without using a display manager. It configures a touch-friendly kiosk environment and provides options for hiding the mouse pointer.
 
+## Latest Release
+
+**Current Stable Release**: [v0.9](https://github.com/kunaalm/ha-chromium-kiosk/releases/tag/v0.9)
+
+We recommend using the latest stable release for the best experience. The release page includes installation instructions and a summary of features.
+
 ## Repository
 
 GitHub: [https://github.com/kunaalm/ha-chromium-kiosk](https://github.com/kunaalm/ha-chromium-kiosk)
@@ -29,9 +35,13 @@ This setup is ideal for creating a dedicated, full-screen Home Assistant web kio
 
 ## Usage
 
-1. **Download the script:**
+1. **Download the script** (recommended to use the stable release):
    ```bash
-   wget -O ha-chromium-kiosk-setup.sh https://raw.githubusercontent.com/kunaalm/ha-chromium-kiosk/main/ha-chromium-kiosk-setup.sh
+   # Option 1: Download from the latest stable release (v0.9)
+   wget -O ha-chromium-kiosk-setup.sh https://raw.githubusercontent.com/kunaalm/ha-chromium-kiosk/v0.9/ha-chromium-kiosk-setup.sh
+
+   # Option 2: Download from the main branch (development version)
+   # wget -O ha-chromium-kiosk-setup.sh https://raw.githubusercontent.com/kunaalm/ha-chromium-kiosk/main/ha-chromium-kiosk-setup.sh
    ```
 
 2. **Make the script executable:**
@@ -78,6 +88,12 @@ The script will prompt you for optional settings, such as hiding the mouse curso
    ```bash
    sudo systemctl status ha-chromium-kiosk.service
    ```
+### Versioning
+
+- **v0.9** - Initial stable release with core functionality
+- Future releases will follow semantic versioning (MAJOR.MINOR.PATCH)
+- For a detailed list of changes in each version, see the [Releases page](https://github.com/kunaalm/ha-chromium-kiosk/releases)
+
 ### Author
 **Kunaal Mahanti**
 
