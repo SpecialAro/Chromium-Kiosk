@@ -101,15 +101,20 @@ cd HA-Chromium-Kiosk
 
 #### Manual Testing
 
-Follow the test cases outlined in `kiosk-test-plan.md`. For each test:
+Follow the test cases outlined in `kiosk-test-plan.md`.
 
-1. Revert to the clean snapshot (use the appropriate script for your OS):
-
+**First-time testing:**
+1. Set up the VM as described in the "Setting up the Test Environment" section
+2. Create a clean snapshot before running any tests:
 ```bash
-# For both Linux and macOS
-./tests/qemu-test-kiosk.sh revert
+./tests/qemu-test-kiosk.sh snapshot
 ```
 
+**For each subsequent test:**
+1. Start with a clean state by reverting to the snapshot:
+```bash
+./tests/qemu-test-kiosk.sh revert
+```
 2. Run the specific test case
 3. Document the results
 
