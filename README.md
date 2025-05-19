@@ -1,5 +1,7 @@
 # HA Chromium Kiosk Setup
 
+> ⚠️ **IMPORTANT**: Version 0.9 contains a bug in IP address validation. Please use version 0.9.1 or later.
+
 This script sets up a light Chromium-based kiosk mode on a Debian server specifically for Home Assistant dashboards, without using a display manager. It configures a touch-friendly kiosk environment and provides options for hiding the mouse pointer.
 
 ## Latest Release
@@ -10,7 +12,7 @@ We recommend using the latest stable release for the best experience. The releas
 
 **Release Notes**:
 - v0.9.1: Fixed IP address validation bug that incorrectly rejected valid IP addresses
-- v0.9: Initial stable release
+- v0.9: ⚠️ DEPRECATED - Contains IP validation bug, please use v0.9.1 instead
 
 ## Repository
 
@@ -98,7 +100,7 @@ The script will prompt you for optional settings, such as hiding the mouse curso
 ### Versioning
 
 - **v0.9.1** - Bug fix release: Fixed IP address validation
-- **v0.9** - Initial stable release with core functionality
+- **v0.9** - ⚠️ DEPRECATED - Initial release with IP validation bug
 - Future releases will follow semantic versioning (MAJOR.MINOR.PATCH)
 - For a detailed list of changes in each version, see the [Releases page](https://github.com/kunaalm/ha-chromium-kiosk/releases)
 
