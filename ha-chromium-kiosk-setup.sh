@@ -315,36 +315,97 @@ check_remove_user() {
     fi
 }
 
+# Function to validate IP address format
+validate_ip() {
+    local ip=$1
+    local valid=1
+
+    # Check if the IP is in the correct format (IPv4)
+    if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        # Split the IP into octets
+        IFS='.' read -r -a octets <<< "$ip"
+
+        # Check if each octet is between 0 and 255
+        for octet in "${octets[@]}"; do
+            if [[ $octet -lt 0 || $octet -gt 255 ]]; then
+                valid=0
+                break
+            fi
+        done
+    else
+        valid=0
+    fi
+
+    # Also allow hostnames
+    if [[ $valid -eq 0 && $ip =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
+        valid=1
+    fi
+
+    return $valid
+}
+
+# Function to validate port number
+validate_port() {
+    local port=$1
+
+    # Check if the port is a number and within the valid range (1-65535)
+    if [[ $port =~ ^[0-9]+$ && $port -ge 1 && $port -le 65535 ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Prompt user function
 prompt_user() {
     local var_name=$1
     local prompt_message=$2
     local default_value=$3
 
-    read -p "$prompt_message [$default_value]: " value
-    value=${value:-$default_value}
+    while true; do
+        read -p "$prompt_message [$default_value]: " value
+        value=${value:-$default_value}
 
-    if [[ -z "$value" && -z "$default_value" ]]; then
-        echo "Error: $var_name is required. Please run the script again."
-        exit 1
-    fi
+        if [[ -z "$value" && -z "$default_value" ]]; then
+            echo "Error: $var_name is required. Please enter a value."
+            continue
+        fi
 
-    # Basic input validation to prevent command injection
-    # This regex allows alphanumeric characters, dots, dashes, underscores, colons, and slashes
-    # which should cover most legitimate inputs while blocking potentially dangerous ones
-    if [[ "$var_name" != "HA_IP" && "$var_name" != "HA_PORT" && "$var_name" != "HA_DASHBOARD_PATH" ]]; then
-        # For yes/no prompts and other simple inputs, we're more restrictive
-        if [[ ! "$value" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
-            echo "Error: Input contains invalid characters. Only alphanumeric characters, dots, dashes, and underscores are allowed."
-            exit 1
+        # Validate IP address if the variable is HA_IP
+        if [[ "$var_name" == "HA_IP" ]]; then
+            if ! validate_ip "$value"; then
+                echo "Error: Invalid IP address or hostname format. Please enter a valid IPv4 address (e.g., 192.168.1.100) or hostname."
+                continue
+            fi
         fi
-    else
-        # For IP addresses, ports, and paths, we need to allow more characters
-        if [[ ! "$value" =~ ^[a-zA-Z0-9_.:/-]+$ ]]; then
-            echo "Error: Input contains invalid characters. Only alphanumeric characters, dots, colons, slashes, dashes, and underscores are allowed."
-            exit 1
+
+        # Validate port number if the variable is HA_PORT
+        if [[ "$var_name" == "HA_PORT" ]]; then
+            if ! validate_port "$value"; then
+                echo "Error: Invalid port number. Please enter a number between 1 and 65535."
+                continue
+            fi
         fi
-    fi
+
+        # Basic input validation to prevent command injection for other inputs
+        # This regex allows alphanumeric characters, dots, dashes, underscores, colons, and slashes
+        # which should cover most legitimate inputs while blocking potentially dangerous ones
+        if [[ "$var_name" != "HA_IP" && "$var_name" != "HA_PORT" && "$var_name" != "HA_DASHBOARD_PATH" ]]; then
+            # For yes/no prompts and other simple inputs, we're more restrictive
+            if [[ ! "$value" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+                echo "Error: Input contains invalid characters. Only alphanumeric characters, dots, dashes, and underscores are allowed."
+                continue
+            fi
+        elif [[ "$var_name" == "HA_DASHBOARD_PATH" ]]; then
+            # For paths, we need to allow more characters
+            if [[ ! "$value" =~ ^[a-zA-Z0-9_.:/-]+$ ]]; then
+                echo "Error: Input contains invalid characters. Only alphanumeric characters, dots, colons, slashes, dashes, and underscores are allowed."
+                continue
+            fi
+        fi
+
+        break
+    done
 
     # Use declare instead of eval for secure variable assignment
     declare -g "$var_name"="$value"
