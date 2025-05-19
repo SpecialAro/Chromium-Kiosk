@@ -326,30 +326,43 @@ check_remove_user() {
 # Function to validate IP address format
 validate_ip() {
     local ip=$1
-    local valid=1
 
-    # Check if the IP is in the correct format (IPv4)
+    # First check if it's a valid IPv4 address
     if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         # Split the IP into octets
         IFS='.' read -r -a octets <<< "$ip"
 
+        # Make sure we have exactly 4 octets
+        if [ ${#octets[@]} -ne 4 ]; then
+            return 1
+        fi
+
         # Check if each octet is between 0 and 255
         for octet in "${octets[@]}"; do
-            if [[ $octet -lt 0 || $octet -gt 255 ]]; then
-                valid=0
-                break
+            # Remove leading zeros which can cause issues with bash interpreting as octal
+            octet=$(echo "$octet" | sed 's/^0*//')
+            # If octet is empty after removing zeros, it was just "0"
+            if [ -z "$octet" ]; then
+                octet=0
+            fi
+
+            # Check if it's a valid number between 0-255
+            if ! [[ "$octet" =~ ^[0-9]+$ ]] || [ "$octet" -lt 0 ] || [ "$octet" -gt 255 ]; then
+                return 1
             fi
         done
-    else
-        valid=0
+
+        # If we got here, it's a valid IPv4 address
+        return 0
     fi
 
-    # Also allow hostnames
-    if [[ $valid -eq 0 && $ip =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
-        valid=1
+    # If not an IP address, check if it's a valid hostname
+    if [[ $ip =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
+        return 0
     fi
 
-    return $valid
+    # If we got here, it's neither a valid IP nor hostname
+    return 1
 }
 
 # Function to validate port number
