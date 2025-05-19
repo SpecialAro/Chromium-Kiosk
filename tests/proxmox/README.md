@@ -194,3 +194,7 @@ To test the uninstallation process:
    ```
 
 3. Verify that all components have been removed correctly.
+
+## License
+
+This documentation and the associated test script are licensed under the Apache License, Version 2.0. See the [LICENSE](../../LICENSE) file in the root of the repository for the full license text.

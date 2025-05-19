@@ -1,4 +1,8 @@
 #!/bin/bash
+###################################################################################
+# HA Chromium Kiosk Proxmox Test Script
+# Author: Kunaal Mahanti (kunaal.mahanti@gmail.com)
+# URL: https://github.com/kunaalm/ha-chromium-kiosk
 #
 # Script to deploy and test HA Chromium Kiosk on a Proxmox VM
 #
@@ -13,6 +17,19 @@
 # - SSH access to Proxmox server with privileges to create VMs
 # - Debian cloud image available on Proxmox server
 # - SSH key for passwordless access to the VM
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+###################################################################################
 
 set -e
 
@@ -170,25 +187,25 @@ ssh "$PROXMOX_USER@$PROXMOX_HOST" "
 
     # Create VM
     qm create $VM_ID --name $VM_NAME --memory $VM_MEMORY --cores $VM_CORES --net0 $VM_NETWORK
-    
+
     # Import disk from template
     qm importdisk $VM_ID /var/lib/vz/template/iso/$DEBIAN_TEMPLATE $VM_STORAGE
-    
+
     # Configure VM
     qm set $VM_ID --scsihw virtio-scsi-pci --scsi0 $VM_STORAGE:vm-$VM_ID-disk-0
     qm set $VM_ID --boot c --bootdisk scsi0
     qm set $VM_ID --serial0 socket --vga serial0
-    
+
     # Set cloud-init parameters
     qm set $VM_ID --ide2 $VM_STORAGE:cloudinit
     qm set $VM_ID --ciuser debian
     qm set $VM_ID --cipassword debian
     qm set $VM_ID --sshkeys \"$SSH_KEY\"
     qm set $VM_ID --ipconfig0 ip=dhcp
-    
+
     # Start VM
     qm start $VM_ID
-    
+
     echo 'VM created and started successfully.'
 "
 
@@ -203,10 +220,10 @@ ATTEMPT=0
 while [ -z "$VM_IP" ] && [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     ATTEMPT=$((ATTEMPT + 1))
     echo -ne "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking VM IP...\r"
-    
+
     # Get VM IP from Proxmox
     VM_IP=$(ssh "$PROXMOX_USER@$PROXMOX_HOST" "qm guest cmd $VM_ID network-get-interfaces | grep -oP '\"ip-addresses\":\[\{\"ip-address\":\"\K[0-9.]+' | head -1" 2>/dev/null || true)
-    
+
     if [ -z "$VM_IP" ]; then
         sleep 5
     fi
@@ -227,17 +244,17 @@ ATTEMPT=0
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     ATTEMPT=$((ATTEMPT + 1))
     echo -ne "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking SSH connectivity...\r"
-    
+
     if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "debian@$VM_IP" "echo SSH connection successful" &>/dev/null; then
         echo -e "\n${GREEN}✓ SSH connection established${NC}"
         break
     fi
-    
+
     if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
         echo -e "\n${RED}Error: Could not establish SSH connection after $MAX_ATTEMPTS attempts${NC}"
         exit 1
     fi
-    
+
     sleep 5
 done
 
@@ -329,17 +346,17 @@ ATTEMPT=0
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     ATTEMPT=$((ATTEMPT + 1))
     echo -ne "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking SSH connectivity after reboot...\r"
-    
+
     if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "debian@$VM_IP" "echo SSH connection successful" &>/dev/null; then
         echo -e "\n${GREEN}✓ SSH connection re-established after reboot${NC}"
         break
     fi
-    
+
     if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
         echo -e "\n${RED}Error: Could not re-establish SSH connection after reboot${NC}"
         exit 1
     fi
-    
+
     sleep 5
 done
 
