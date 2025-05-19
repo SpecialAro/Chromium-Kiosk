@@ -48,13 +48,14 @@ This setup is ideal for creating a dedicated, full-screen Home Assistant web kio
    * Confirm the port for Home Assistant (defaults to 8123)
    * Enter the path to your Home Assistant dashboard (defaults to lovelace/default_view)
    * Choose whether to enable kiosk mode (?kiosk=true will be added to the URL if enabled)
+   * Choose whether to hide the mouse cursor (recommended for touchscreens)
 
    ***To Uninstall:***
    ```bash
-   sudo ./ha-chromium-kiosk/ha-chromium-kiosk-setup.sh uninstall
+   sudo ./ha-chromium-kiosk-setup.sh uninstall
    ```
 
-5.	**Reboot the System:**
+4. **Reboot the System:**
 After the script completes, you will be prompted to reboot. You can either reboot immediately or do so manually later to activate the kiosk environment.
 
 ### Important Information

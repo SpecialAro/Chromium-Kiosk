@@ -16,15 +16,16 @@ This document outlines the test plan for the HA-Chromium-Kiosk setup script usin
 **Objective**: Verify that the script can successfully install the kiosk environment on a clean system.
 
 **Steps**:
-1. Start with a clean VM (use `./test-kiosk-script.sh revert` to restore snapshot)
-2. Run the installation script: `sudo ./ha-chromium-kiosk-setup.sh install`
-3. Provide the following inputs:
+1. Start with a clean VM (use `./tests/qemu-test-kiosk.sh revert` to restore snapshot)
+2. Make the script executable: `chmod +x ha-chromium-kiosk-setup.sh`
+3. Run the installation script with bash: `sudo bash ./ha-chromium-kiosk-setup.sh install`
+4. Provide the following inputs:
    - Home Assistant IP: `192.168.1.100` (or your actual HA instance IP)
    - Port: `8123` (default)
    - Dashboard path: `lovelace/default_view` (default)
    - Enable kiosk mode: `Y` (default)
    - Hide cursor: `Y` (default)
-4. Choose to reboot: `Y`
+5. Choose to reboot: `Y`
 
 **Expected Result**:
 - Script completes without errors
@@ -36,17 +37,18 @@ This document outlines the test plan for the HA-Chromium-Kiosk setup script usin
 **Objective**: Verify that the script properly handles existing configurations.
 
 **Steps**:
-1. Start with a clean VM
-2. Create a kiosk user manually: `sudo adduser kiosk`
+1. Start with a clean VM (use `./tests/qemu-test-kiosk.sh revert` to restore snapshot)
+2. Create a kiosk user manually: `adduser kiosk`
 3. Create some configuration files:
    ```bash
-   sudo mkdir -p /home/kiosk/.config/openbox
-   echo "# Custom configuration" | sudo tee /home/kiosk/.config/openbox/autostart
-   sudo chown -R kiosk:kiosk /home/kiosk/.config
+   mkdir -p /home/kiosk/.config/openbox
+   echo "# Custom configuration" | tee /home/kiosk/.config/openbox/autostart
+   chown -R kiosk:kiosk /home/kiosk/.config
    ```
-4. Run the installation script: `sudo ./ha-chromium-kiosk-setup.sh install`
-5. Choose to use the existing kiosk user
-6. When prompted about existing configurations, choose to back them up
+4. Make the script executable: `chmod +x ha-chromium-kiosk-setup.sh`
+5. Run the installation script with bash: `bash ./ha-chromium-kiosk-setup.sh install`
+6. Choose to use the existing kiosk user
+7. When prompted about existing configurations, choose to back them up
 
 **Expected Result**:
 - Script detects existing configuration files
@@ -60,9 +62,10 @@ This document outlines the test plan for the HA-Chromium-Kiosk setup script usin
 
 **Steps**:
 1. Start with a VM where the kiosk has been installed
-2. Run the uninstallation script: `sudo ./ha-chromium-kiosk-setup.sh uninstall`
-3. Confirm uninstallation: `Y`
-4. Choose to remove installed packages: `Y`
+2. Make the script executable if needed: `chmod +x ha-chromium-kiosk-setup.sh`
+3. Run the uninstallation script with bash: `bash ./ha-chromium-kiosk-setup.sh uninstall`
+4. Confirm uninstallation: `Y`
+5. Choose to remove installed packages: `Y`
 
 **Expected Result**:
 - Script removes all configurations and installed packages
@@ -74,8 +77,9 @@ This document outlines the test plan for the HA-Chromium-Kiosk setup script usin
 
 **Steps**:
 1. Start with a VM where the kiosk has been installed
-2. Run the uninstallation script: `sudo ./ha-chromium-kiosk-setup.sh uninstall`
-3. When prompted about restoring backups, choose to restore them: `Y`
+2. Make the script executable if needed: `chmod +x ha-chromium-kiosk-setup.sh`
+3. Run the uninstallation script with bash: `bash ./ha-chromium-kiosk-setup.sh uninstall`
+4. When prompted about restoring backups, choose to restore them: `Y`
 
 **Expected Result**:
 - Script detects backup files
@@ -87,10 +91,11 @@ This document outlines the test plan for the HA-Chromium-Kiosk setup script usin
 **Objective**: Verify that the script handles network connectivity issues gracefully.
 
 **Steps**:
-1. Start with a clean VM
-2. Disconnect the VM from the network (in VirtualBox, go to Settings > Network and temporarily disable the adapter)
-3. Run the installation script: `sudo ./ha-chromium-kiosk-setup.sh install`
-4. Provide an unreachable Home Assistant IP
+1. Start with a clean VM (use `./tests/qemu-test-kiosk.sh revert` to restore snapshot)
+2. Disconnect the VM from the network (in QEMU, you can use the monitor command `set_link net0 off`)
+3. Make the script executable: `chmod +x ha-chromium-kiosk-setup.sh`
+4. Run the installation script with bash: `bash ./ha-chromium-kiosk-setup.sh install`
+5. Provide an unreachable Home Assistant IP
 
 **Expected Result**:
 - Script should handle network connectivity issues gracefully
