@@ -4,9 +4,13 @@ This script sets up a light Chromium-based kiosk mode on a Debian server specifi
 
 ## Latest Release
 
-**Current Stable Release**: [v0.9](https://github.com/kunaalm/ha-chromium-kiosk/releases/tag/v0.9)
+**Current Stable Release**: [v0.9.1](https://github.com/kunaalm/ha-chromium-kiosk/releases/tag/v0.9.1)
 
 We recommend using the latest stable release for the best experience. The release page includes installation instructions and a summary of features.
+
+**Release Notes**:
+- v0.9.1: Fixed IP address validation bug that incorrectly rejected valid IP addresses
+- v0.9: Initial stable release
 
 ## Repository
 
@@ -37,9 +41,9 @@ This setup is ideal for creating a dedicated, full-screen Home Assistant web kio
 
 1. **Download the script**:
 
-   **Option 1 (Recommended)**: Download from the latest stable release (v0.9)
+   **Option 1 (Recommended)**: Download from the latest stable release (v0.9.1)
    ```bash
-   wget -O ha-chromium-kiosk-setup.sh https://raw.githubusercontent.com/kunaalm/ha-chromium-kiosk/v0.9/ha-chromium-kiosk-setup.sh
+   wget -O ha-chromium-kiosk-setup.sh https://raw.githubusercontent.com/kunaalm/ha-chromium-kiosk/v0.9.1/ha-chromium-kiosk-setup.sh
    ```
 
    **Option 2**: Download from the main branch (development version)
@@ -93,6 +97,7 @@ The script will prompt you for optional settings, such as hiding the mouse curso
    ```
 ### Versioning
 
+- **v0.9.1** - Bug fix release: Fixed IP address validation
 - **v0.9** - Initial stable release with core functionality
 - Future releases will follow semantic versioning (MAJOR.MINOR.PATCH)
 - For a detailed list of changes in each version, see the [Releases page](https://github.com/kunaalm/ha-chromium-kiosk/releases)
