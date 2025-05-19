@@ -292,7 +292,7 @@ check_backup_config() {
     if [ -f "$config_file" ]; then
         echo "Existing $config_desc configuration found."
         prompt_user backup_config "Do you want to backup the existing $config_desc configuration? (Y/n)" "Y"
-        if [[ $backup_config =~ ^[Yy]$ ]]; then
+        if [[ $backup_config =~ ^[Yy]?$ ]]; then
             echo "Backing up existing $config_desc configuration..."
             cp "$config_file" "$config_file.backup.$(date +%Y%m%d%H%M%S)"
             echo "Backup created at $config_file.backup.$(date +%Y%m%d%H%M%S)"
@@ -318,7 +318,7 @@ install_kiosk() {
     prompt_user hide_cursor "Do you want to hide the mouse cursor? (Y/n)" "Y"
 
     KIOSK_MODE=""
-    [[ $enable_kiosk =~ ^[Yy]$ ]] && KIOSK_MODE="?kiosk=true"
+    [[ $enable_kiosk =~ ^[Yy]?$ ]] && KIOSK_MODE="?kiosk=true"
 
     KIOSK_URL="http://$HA_IP:$HA_PORT/$HA_DASHBOARD_PATH$KIOSK_MODE"
     echo "Your Home Assistant dashboard will be displayed at: $KIOSK_URL"
@@ -369,7 +369,7 @@ xset s noblank
 # Optionally hide the mouse cursor
 EOF
 
-    [[ $hide_cursor =~ ^[Yy]$ ]] && echo "unclutter -idle 0 &" >>/usr/local/bin/ha-chromium-kiosk.sh
+    [[ $hide_cursor =~ ^[Yy]?$ ]] && echo "unclutter -idle 0 &" >>/usr/local/bin/ha-chromium-kiosk.sh
 
     cat <<EOF >>/usr/local/bin/ha-chromium-kiosk.sh
 
@@ -439,7 +439,7 @@ EOF
 
     # Prompt for immediate reboot
     prompt_user reboot_now "Setup is complete. Do you want to reboot now?" "Y"
-    [[ $reboot_now =~ ^[Yy]$ ]] && { echo "Rebooting the system..."; reboot; } || echo "Setup is complete. Please reboot the system manually when ready."
+    [[ $reboot_now =~ ^[Yy]?$ ]] && { echo "Rebooting the system..."; reboot; } || echo "Setup is complete. Please reboot the system manually when ready."
 }
 
 # Uninstall the kiosk setup
@@ -474,7 +474,7 @@ uninstall_kiosk() {
             echo "Backup found for $desc: $latest_backup"
             prompt_user restore_backup "Do you want to restore this backup before removing the current file? (Y/n)" "Y"
 
-            if [[ $restore_backup =~ ^[Yy]$ ]]; then
+            if [[ $restore_backup =~ ^[Yy]?$ ]]; then
                 echo "Restoring backup for $desc..."
                 cp "$latest_backup" "$file_path"
                 echo "Backup restored."
@@ -532,7 +532,7 @@ uninstall_kiosk() {
         echo "Backup found for kiosk configuration directory: $latest_backup"
         prompt_user restore_kiosk_config "Do you want to restore this backup before proceeding? (Y/n)" "Y"
 
-        if [[ $restore_kiosk_config =~ ^[Yy]$ ]]; then
+        if [[ $restore_kiosk_config =~ ^[Yy]?$ ]]; then
             echo "Restoring backup for kiosk configuration directory..."
             if [ -d "$KIOSK_CONFIG_DIR" ]; then
                 rm -rf "$KIOSK_CONFIG_DIR"
@@ -550,7 +550,7 @@ uninstall_kiosk() {
 
         prompt_user remove_packages "Do you want to remove the installed packages? (Y/n)" "Y"
 
-        if [[ $remove_packages =~ ^[Yy]$ ]]; then
+        if [[ $remove_packages =~ ^[Yy]?$ ]]; then
             echo "Removing installed packages..."
             for pkg in $installed_packages; do
                 uninstall_package "$pkg"
