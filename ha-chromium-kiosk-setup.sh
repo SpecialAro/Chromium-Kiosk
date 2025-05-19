@@ -62,7 +62,7 @@ OPENBOX_CONFIG_DIR="$CONFIG_DIR/openbox"
 DEFAULT_HA_PORT="8123"
 DEFAULT_HA_DASHBOARD_PATH="lovelace/default_view"
 
-PKGS_NEEDED=(xorg openbox chromium xserver-xorg xinit unclutter curl)
+PKGS_NEEDED=(xorg openbox chromium xserver-xorg xinit unclutter curl netcat-openbsd)
 
 ## FUNCTIONS ##
 
@@ -97,7 +97,9 @@ print_banner() {
 
 # Install a package and print dots while waiting
 install_package() {
-    package=$1  # Corrected assignment syntax
+    local package=$1
+    local dot_pid
+    local apt_status
 
     # Start a background job to print dots
     while true; do
@@ -106,26 +108,29 @@ install_package() {
     done &
 
     # Capture the PID of the background job
-    DOT_PID=$!
+    dot_pid=$!
 
     # Run apt-get update and install silently
     sudo apt-get update > /dev/null 2>&1
-    sudo apt-get install -y "$package" > /dev/null 2>&1  # Quoting $package for safety
+    sudo apt-get install -y "$package" > /dev/null 2>&1
     # Capture the exit status of the apt-get command
     apt_status=$?
 
     # Kill the background job
-    kill $DOT_PID
+    kill $dot_pid 2>/dev/null || true
 
     # Wait for the background job to completely terminate
-    wait $DOT_PID 2>/dev/null
+    wait $dot_pid 2>/dev/null || true
+
     # Return the exit status of the apt-get command
     return $apt_status
 }
 
 # Uninstall the installed package and print dots while waiting
 uninstall_package() {
-    package=$1
+    local package=$1
+    local dot_pid
+    local apt_status
 
     # Start a background job to print dots
     while true; do
@@ -134,7 +139,7 @@ uninstall_package() {
     done &
 
     # Capture the PID of the background job
-    DOT_PID=$!
+    dot_pid=$!
 
     # Run apt-get remove silently
     sudo apt-get remove --purge -y "$package" > /dev/null 2>&1
@@ -142,10 +147,11 @@ uninstall_package() {
     apt_status=$?
 
     # Kill the background job
-    kill $DOT_PID
+    kill $dot_pid 2>/dev/null || true
 
     # Wait for the background job to completely terminate
-    wait $DOT_PID 2>/dev/null
+    wait $dot_pid 2>/dev/null || true
+
     # Return the exit status of the apt-get command
     return $apt_status
 }
@@ -177,7 +183,7 @@ install_packages() {
     pkgs_list="${PKGS_NEEDED[*]}"
 
     # Get the install status of all required packages at once
-    dpkg_query_output=$(dpkg-query -W -f='${Package} ${Status}\n' $pkgs_list 2>/dev/null)
+    dpkg_query_output=$(dpkg-query -W -f='${Package} ${Status}\n' "$pkgs_list" 2>/dev/null)
 
     for pkg in "${PKGS_NEEDED[@]}"; do
         if ! echo "$dpkg_query_output" | grep -q "^$pkg install ok installed$"; then
@@ -243,7 +249,9 @@ uninstall_packages() {
             echo "Removing installed packages..."
 
             # Uninstall the packages one by one to handle errors better
-            for pkg in $installed_packages; do
+            # Use read to properly handle package names with spaces
+            IFS=' ' read -r -a pkg_array <<< "$installed_packages"
+            for pkg in "${pkg_array[@]}"; do
                 echo "Removing package: $pkg"
                 if ! apt-get purge -y "$pkg"; then
                     echo "Warning: Failed to purge package: $pkg. Continuing with other packages."
@@ -507,8 +515,21 @@ check_network() {
 
     echo "Checking if Home Assistant is reachable at $HA_IP:$HA_PORT..."
 
+    # Check if netcat is installed
+    if ! command -v nc &> /dev/null; then
+        echo "Warning: netcat (nc) is not installed. Cannot check network connectivity."
+        echo "Installing netcat..."
+        apt-get update > /dev/null 2>&1
+        apt-get install -y netcat-openbsd > /dev/null 2>&1
+
+        if ! command -v nc &> /dev/null; then
+            echo "Failed to install netcat. Skipping network check."
+            return 1
+        fi
+    fi
+
     while [ $attempt -lt $max_attempts ] && [ "$success" = "false" ]; do
-        if nc -z -w 5 $HA_IP $HA_PORT 2>/dev/null; then
+        if nc -z -w 5 "$HA_IP" "$HA_PORT" 2>/dev/null; then
             success=true
             echo "Connection to Home Assistant established!"
         else
@@ -703,7 +724,9 @@ uninstall_kiosk() {
 
         if [[ $remove_packages =~ ^[Yy]?$ ]]; then
             echo "Removing installed packages..."
-            for pkg in $installed_packages; do
+            # Use read to properly handle package names with spaces
+            IFS=' ' read -r -a pkg_array <<< "$installed_packages"
+            for pkg in "${pkg_array[@]}"; do
                 uninstall_package "$pkg"
 
                 # Check if package was removed successfully
