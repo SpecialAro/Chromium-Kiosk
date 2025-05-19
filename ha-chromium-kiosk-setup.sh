@@ -281,7 +281,25 @@ prompt_user() {
         exit 1
     fi
 
-    eval $var_name=\$value
+    # Basic input validation to prevent command injection
+    # This regex allows alphanumeric characters, dots, dashes, underscores, colons, and slashes
+    # which should cover most legitimate inputs while blocking potentially dangerous ones
+    if [[ "$var_name" != "HA_IP" && "$var_name" != "HA_PORT" && "$var_name" != "HA_DASHBOARD_PATH" ]]; then
+        # For yes/no prompts and other simple inputs, we're more restrictive
+        if [[ ! "$value" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+            echo "Error: Input contains invalid characters. Only alphanumeric characters, dots, dashes, and underscores are allowed."
+            exit 1
+        fi
+    else
+        # For IP addresses, ports, and paths, we need to allow more characters
+        if [[ ! "$value" =~ ^[a-zA-Z0-9_.:/-]+$ ]]; then
+            echo "Error: Input contains invalid characters. Only alphanumeric characters, dots, colons, slashes, dashes, and underscores are allowed."
+            exit 1
+        fi
+    fi
+
+    # Use declare instead of eval for secure variable assignment
+    declare -g "$var_name"="$value"
 }
 
 # Check and backup existing configuration files
