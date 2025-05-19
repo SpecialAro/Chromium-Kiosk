@@ -124,7 +124,8 @@ start_vm_first_time() {
             -device virtio-net,netdev=net0 \
             -netdev user,id=net0,hostfwd=tcp::2222-:22 \
             -name "$VM_NAME" \
-            -display default
+            -display default \
+            -monitor stdio
     else
         # Linux uses KVM for hardware acceleration
         qemu-system-x86_64 \
@@ -135,7 +136,8 @@ start_vm_first_time() {
             -device virtio-net,netdev=net0 \
             -netdev user,id=net0,hostfwd=tcp::2222-:22 \
             -name "$VM_NAME" \
-            -display default
+            -display default \
+            -monitor stdio
     fi
 }
 
@@ -144,6 +146,7 @@ start_vm() {
     print_message "$YELLOW" "Starting VM from disk..."
     print_message "$YELLOW" "SSH will be forwarded to port 2222 on your host."
     print_message "$YELLOW" "You can connect with: ssh -p 2222 root@localhost"
+    print_message "$YELLOW" "Note: SSH server may not be installed by default. See setup instructions below."
 
     # Platform-specific VM launch options
     if [ "$PLATFORM" = "macos" ]; then
@@ -156,7 +159,8 @@ start_vm() {
             -device virtio-net,netdev=net0 \
             -netdev user,id=net0,hostfwd=tcp::2222-:22 \
             -name "$VM_NAME" \
-            -display default
+            -display default \
+            -monitor stdio
     else
         # Linux uses KVM for hardware acceleration
         qemu-system-x86_64 \
@@ -167,18 +171,58 @@ start_vm() {
             -device virtio-net,netdev=net0 \
             -netdev user,id=net0,hostfwd=tcp::2222-:22 \
             -name "$VM_NAME" \
-            -display default
+            -display default \
+            -monitor stdio
     fi
 }
 
 # Function to prepare the test environment
 prepare_test_environment() {
     print_message "$YELLOW" "Once the VM is installed and running, you need to:"
-    print_message "$YELLOW" "1. Log in to the VM (username: root, no password)"
-    print_message "$YELLOW" "2. Install git: apt-get update && apt-get install -y git"
-    print_message "$YELLOW" "3. Clone your repository: git clone https://github.com/kunaalm/HA-Chromium-Kiosk.git"
-    print_message "$YELLOW" "4. Run the script: cd HA-Chromium-Kiosk && ./ha-chromium-kiosk-setup.sh install"
-    print_message "$YELLOW" "5. After testing, create a snapshot with: ./tests/qemu-test-kiosk.sh snapshot"
+    print_message "$YELLOW" "1. Log in to the VM through the QEMU console window (username: root, no password)"
+    print_message "$YELLOW" "2. Set up SSH access (optional, but recommended for easier testing):"
+    print_message "$YELLOW" "   a. Install SSH server: apt-get update && apt-get install -y openssh-server"
+    print_message "$YELLOW" "   b. Set a root password: passwd root"
+    print_message "$YELLOW" "   c. Configure SSH to allow root login with password:"
+    print_message "$YELLOW" "      sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config"
+    print_message "$YELLOW" "   d. Restart SSH service: systemctl restart ssh"
+    print_message "$YELLOW" "   e. Now you can connect from your host: ssh -p 2222 root@localhost"
+    print_message "$YELLOW" "3. Install git and bash: apt-get update && apt-get install -y git bash"
+    print_message "$YELLOW" "4. Clone your repository: git clone https://github.com/kunaalm/HA-Chromium-Kiosk.git"
+    print_message "$YELLOW" "5. Make the script executable: cd HA-Chromium-Kiosk && chmod +x ha-chromium-kiosk-setup.sh"
+    print_message "$YELLOW" "6. Run the script with bash: bash ./ha-chromium-kiosk-setup.sh install"
+    print_message "$YELLOW" "7. After testing, create a snapshot with: ./tests/qemu-test-kiosk.sh snapshot"
+}
+
+# Function to create a setup script for SSH
+create_ssh_setup_script() {
+    print_message "$YELLOW" "Creating SSH setup script..."
+    cat > ssh-setup.sh <<EOF
+#!/bin/bash
+# Script to set up SSH access in the Debian VM
+
+# Update package lists
+apt-get update
+
+# Install SSH server and bash
+apt-get install -y openssh-server bash
+
+# Set root password to 'kiosk' (for testing only)
+echo "root:kiosk" | chpasswd
+
+# Configure SSH to allow root login with password
+sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+# Restart SSH service
+systemctl restart ssh
+
+echo "SSH setup complete. You can now connect with: ssh -p 2222 root@localhost"
+echo "The root password is: kiosk"
+EOF
+    chmod +x ssh-setup.sh
+    print_message "$GREEN" "SSH setup script created: ssh-setup.sh"
+    print_message "$YELLOW" "Copy this script to the VM and run it to set up SSH access."
+    print_message "$YELLOW" "You can use the QEMU console to do this."
 }
 
 # Function to display help
@@ -190,6 +234,7 @@ show_help() {
     echo "  setup       Download VM image and prepare disk"
     echo "  first-boot  Start VM for the first time"
     echo "  start       Start VM from disk"
+    echo "  ssh-setup   Create a script to set up SSH access in the VM"
     echo "  snapshot    Create a snapshot of the current VM state"
     echo "  revert      Revert to the clean snapshot"
     echo "  list        List available snapshots"
@@ -212,6 +257,9 @@ case "$1" in
     start)
         check_qemu
         start_vm
+        ;;
+    ssh-setup)
+        create_ssh_setup_script
         ;;
     snapshot)
         check_qemu
