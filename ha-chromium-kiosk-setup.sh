@@ -168,10 +168,32 @@ install_packages() {
             current_pkg=$((current_pkg + 1))
             echo -ne "Installing package $current_pkg of $total_pkgs: $pkg "
 
-            if ! install_package "$pkg"; then
-                echo "Failed to install package: $pkg"
-                exit 1
-            fi
+            # Try to install the package with retry logic
+            local max_retries=3
+            local retry_count=0
+            local success=false
+
+            while [ $retry_count -lt $max_retries ] && [ "$success" = "false" ]; do
+                if install_package "$pkg"; then
+                    success=true
+                else
+                    retry_count=$((retry_count + 1))
+                    if [ $retry_count -lt $max_retries ]; then
+                        echo "Failed to install package: $pkg (Attempt $retry_count of $max_retries)"
+                        echo "Retrying in 5 seconds..."
+                        sleep 5
+                    else
+                        echo "Failed to install package: $pkg after $max_retries attempts"
+                        prompt_user continue_on_error "Do you want to continue with the installation anyway? (y/N)" "N"
+                        if [[ ! $continue_on_error =~ ^[Yy]$ ]]; then
+                            echo "Installation aborted due to package installation failure."
+                            exit 1
+                        else
+                            echo "Continuing installation despite package failure. Some features may not work correctly."
+                        fi
+                    fi
+                fi
+            done
 
             echo " Done."
         done
@@ -392,14 +414,38 @@ EOF
     cat <<EOF >>/usr/local/bin/ha-chromium-kiosk.sh
 
 check_network() {
-    while ! nc -z -w 5 $HA_IP $HA_PORT; do
-        echo "Checking if Home Assistant is reachable..."
-        sleep 2
+    local max_attempts=30  # Maximum number of attempts (30 * 2 seconds = 1 minute timeout)
+    local attempt=0
+    local success=false
+
+    echo "Checking if Home Assistant is reachable at $HA_IP:$HA_PORT..."
+
+    while [ $attempt -lt $max_attempts ] && [ "$success" = "false" ]; do
+        if nc -z -w 5 $HA_IP $HA_PORT 2>/dev/null; then
+            success=true
+            echo "Connection to Home Assistant established!"
+        else
+            attempt=$((attempt + 1))
+            if [ $attempt -lt $max_attempts ]; then
+                echo "Attempt $attempt of $max_attempts: Home Assistant not reachable yet. Retrying in 2 seconds..."
+                sleep 2
+            else
+                echo "Warning: Could not connect to Home Assistant after $max_attempts attempts."
+                echo "The kiosk will continue to try connecting when it starts."
+                echo "Please ensure Home Assistant is running at $HA_IP:$HA_PORT"
+                return 1
+            fi
+        fi
     done
+
+    return 0
 }
 
-check_network
-echo "Home Assistant is reachable. Starting Chromium..."
+if check_network; then
+    echo "Home Assistant is reachable. Starting Chromium..."
+else
+    echo "Starting Chromium anyway, will keep trying to connect to Home Assistant..."
+fi
 
 chromium \
     --noerrdialogs \
@@ -589,6 +635,30 @@ uninstall_kiosk() {
 
     echo "Uninstallation complete. The HA Chromium Kiosk setup has been removed."
 }
+
+# Function to handle script interruption
+cleanup() {
+    local exit_code=$?
+    local signal_name=$1
+
+    echo ""
+    if [ $exit_code -ne 0 ]; then
+        echo "Script interrupted or error occurred ($signal_name). Exit code: $exit_code"
+        echo "Cleaning up temporary files and configurations..."
+
+        # Clean up any temporary files or partial configurations here
+        # This ensures the system is not left in an inconsistent state
+
+        echo "Cleanup complete. You may need to manually check the system for any incomplete changes."
+    fi
+
+    exit $exit_code
+}
+
+# Set up signal handling
+trap 'cleanup "SIGINT"' INT
+trap 'cleanup "SIGTERM"' TERM
+trap 'cleanup "EXIT"' EXIT
 
 ## SCRIPT STARTS HERE
 # Check if script is run with sudo
