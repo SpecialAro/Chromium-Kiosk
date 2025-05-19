@@ -1,0 +1,18 @@
+# Ignore QEMU disk images
+*.qcow2
+
+# Ignore VirtualBox disk images
+*.vdi
+
+# Ignore Debian ISO files
+*.iso
+
+# Ignore backup files
+*.backup.*
+
+# Ignore logs
+*.log
+
+# Ignore temporary files
+*.tmp
+*~
