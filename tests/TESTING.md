@@ -59,18 +59,24 @@ These steps will:
 
 3. Log in to the VM:
    - For both QEMU and VirtualBox with nocloud image: username `root` with no password (passwordless login)
+   - **Note**: You'll need to log in through the VM console window that opens when you start the VM
 
-4. After logging in, start the VM (use the appropriate script for your OS):
+4. Set up SSH access (optional but recommended):
 
 ```bash
-# For both Linux and macOS
-./tests/qemu-test-kiosk.sh start
+# Generate an SSH setup script on your host machine
+./tests/qemu-test-kiosk.sh ssh-setup
+
+# In the VM console, create a file with the same content as the generated script
+# Then make it executable and run it
+chmod +x ssh-setup.sh
+./ssh-setup.sh
 ```
 
-5. Connect to the VM via SSH (for QEMU):
+5. After setting up SSH, you can connect from your host machine:
 
 ```bash
-# For nocloud image with passwordless root login
+# Connect with the password 'kiosk' (if you used the ssh-setup script)
 ssh -p 2222 root@localhost
 ```
 
@@ -78,16 +84,19 @@ ssh -p 2222 root@localhost
 
 ```bash
 # Update the system
-sudo apt-get update && sudo apt-get upgrade -y
+apt-get update && apt-get upgrade -y
 
-# Install git (if not already installed)
-sudo apt-get install -y git
+# Install git and bash (if not already installed)
+apt-get install -y git bash
 
 # Clone the repository
 git clone https://github.com/kunaalm/HA-Chromium-Kiosk.git
 
 # Navigate to the repository directory
 cd HA-Chromium-Kiosk
+
+# Make the script executable
+chmod +x ha-chromium-kiosk-setup.sh
 ```
 
 7. Create a snapshot of the clean VM state (use the appropriate script for your OS):
@@ -105,7 +114,8 @@ Follow the test cases outlined in `kiosk-test-plan.md`.
 
 **First-time testing:**
 1. Set up the VM as described in the "Setting up the Test Environment" section
-2. Create a clean snapshot before running any tests:
+2. Install and configure the necessary components in the VM
+3. Create a clean snapshot before running any tests:
 ```bash
 ./tests/qemu-test-kiosk.sh snapshot
 ```
@@ -115,8 +125,12 @@ Follow the test cases outlined in `kiosk-test-plan.md`.
 ```bash
 ./tests/qemu-test-kiosk.sh revert
 ```
-2. Run the specific test case
-3. Document the results
+2. Start the VM:
+```bash
+./tests/qemu-test-kiosk.sh start
+```
+3. Run the specific test case
+4. Document the results
 
 #### Automated Testing
 
@@ -172,3 +186,5 @@ See `kiosk-test-plan.md` for detailed test cases and expected results.
 - **Permission denied**: Ensure scripts are executable (`chmod +x script.sh`)
 - **Dependency errors**: Make sure all required packages are installed in the VM
 - **Path issues**: Run scripts from the repository root directory
+- **Shell issues**: Always run the script with bash explicitly (`bash ./ha-chromium-kiosk-setup.sh install`) as the default shell in the Debian cloud image might not be bash
+- **SSH connection issues**: Remember that SSH is not installed by default in the Debian cloud image. Use the `ssh-setup` command to generate a setup script or follow the manual SSH setup instructions
