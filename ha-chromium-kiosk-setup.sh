@@ -759,30 +759,6 @@ uninstall_kiosk() {
     echo "Uninstallation complete. The HA Chromium Kiosk setup has been removed."
 }
 
-# Function to handle script interruption
-cleanup() {
-    local exit_code=$?
-    local signal_name=$1
-
-    echo ""
-    if [ $exit_code -ne 0 ]; then
-        echo "Script interrupted or error occurred ($signal_name). Exit code: $exit_code"
-        echo "Cleaning up temporary files and configurations..."
-
-        # Clean up any temporary files or partial configurations here
-        # This ensures the system is not left in an inconsistent state
-
-        echo "Cleanup complete. You may need to manually check the system for any incomplete changes."
-    fi
-
-    exit $exit_code
-}
-
-# Set up signal handling
-trap 'cleanup "SIGINT"' INT
-trap 'cleanup "SIGTERM"' TERM
-trap 'cleanup "EXIT"' EXIT
-
 ## SCRIPT STARTS HERE
 # Check if script is run with sudo
 if [ "$EUID" -ne 0 ]; then
