@@ -547,7 +547,7 @@ EOF
 
 # Uninstall the kiosk setup
 uninstall_kiosk() {
-    echo "This script will uninstall HA Chromium Kiosk and remove all associated configurations."
+    echo "This script will uninstall Chromium Kiosk and remove all associated configurations."
     prompt_user confirm "Are you sure you want to proceed? (Y/n)" "Y"
     if [[ $confirm =~ ^[Nn]$ ]]; then
         echo "Uninstall canceled."
