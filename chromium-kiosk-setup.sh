@@ -26,13 +26,12 @@ trap 'cleanup "SIGTERM"' TERM
 trap 'cleanup "EXIT"' EXIT
 
 ###################################################################################
-# HA Chromium Kiosk Setup and Uninstall Script
-# Author: Kunaal Mahanti (kunaal.mahanti@gmail.com)
-# URL: https://github.com/kunaalm/ha-chromium-kiosk
+# Chromium Kiosk Setup and Uninstall Script
+# Author: André Oliveira (oliveira.andrerodrigues95@gmail.com)
+# URL: https://github.com/specialar/chromium-kiosk
 #
 # This script installs or uninstalls a light Chromium-based kiosk mode on a
-# Debian server specifically for Home Assistant dashboards, without using
-# a display manager.
+# Debian server, without using a display manager.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,7 +45,7 @@ trap 'cleanup "EXIT"' EXIT
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Usage: sudo ./ha-chromium-kiosk-setup.sh {install|uninstall}
+# Usage: sudo ./chromium-kiosk-setup.sh {install|uninstall}
 #               install - Installs the kiosk setup
 #               uninstall - Uninstalls the kiosk setup
 #
@@ -56,11 +55,8 @@ trap 'cleanup "EXIT"' EXIT
 ## GLOBAL VARIABLES AND DEFAULTS ##
 KIOSK_USER="kiosk"
 CONFIG_DIR="/home/$KIOSK_USER/.config"
-KIOSK_CONFIG_DIR="$CONFIG_DIR/ha-chromium-kiosk"
+KIOSK_CONFIG_DIR="$CONFIG_DIR/chromium-kiosk"
 OPENBOX_CONFIG_DIR="$CONFIG_DIR/openbox"
-
-DEFAULT_HA_PORT="8123"
-DEFAULT_HA_DASHBOARD_PATH="lovelace/default_view"
 
 PKGS_NEEDED=(xorg openbox chromium xserver-xorg xinit unclutter curl netcat-openbsd)
 
@@ -82,13 +78,13 @@ print_banner() {
     echo "/_/ /_/_/  |_|   \____/_/ /_/_/   \____/_/ /_/ /_/_/\__,_/_/ /_/ /_/  /_/ |_/_/\____/____/_/|_|   "
     echo "                                                                                                  "
     echo "                                                                                                 "
-    echo "                        Setup and Install or Uninstall Script for HA Chromium Kiosk              "
+    echo "                        Setup and Install or Uninstall Script for Chromium Kiosk                 "
     echo "                                                                                                 "
     echo "****************************************************************************************************"
     echo "***                               WARNING: USE AT YOUR OWN RISK                                  ***"
     echo "****************************************************************************************************"
     echo "                                                                                                 "
-    echo "* This script will install or uninstall HA Chromium Kiosk setup."
+    echo "* This script will install or uninstall Chromium Kiosk setup."
     echo "* Please read the script before running it to understand what it does."
     echo "* Use at your own risk. The author is not responsible for any damage or data loss."
     echo "* Press Ctrl+C to exit or any other key to continue."
@@ -392,32 +388,10 @@ prompt_user() {
             continue
         fi
 
-        # Validate IP address if the variable is HA_IP
-        if [[ "$var_name" == "HA_IP" ]]; then
-            if ! validate_ip "$value"; then
-                echo "Error: Invalid IP address or hostname format. Please enter a valid IPv4 address (e.g., 192.168.1.100) or hostname."
-                continue
-            fi
-        fi
-
-        # Validate port number if the variable is HA_PORT
-        if [[ "$var_name" == "HA_PORT" ]]; then
-            if ! validate_port "$value"; then
-                echo "Error: Invalid port number. Please enter a number between 1 and 65535."
-                continue
-            fi
-        fi
-
         # Basic input validation to prevent command injection for other inputs
         # This regex allows alphanumeric characters, dots, dashes, underscores, colons, and slashes
         # which should cover most legitimate inputs while blocking potentially dangerous ones
-        if [[ "$var_name" != "HA_IP" && "$var_name" != "HA_PORT" && "$var_name" != "HA_DASHBOARD_PATH" ]]; then
-            # For yes/no prompts and other simple inputs, we're more restrictive
-            if [[ ! "$value" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
-                echo "Error: Input contains invalid characters. Only alphanumeric characters, dots, dashes, and underscores are allowed."
-                continue
-            fi
-        elif [[ "$var_name" == "HA_DASHBOARD_PATH" ]]; then
+        if [[ "$var_name" == "KIOSK_URL" ]]; then
             # For paths, we need to allow more characters
             if [[ ! "$value" =~ ^[a-zA-Z0-9_.:/-]+$ ]]; then
                 echo "Error: Input contains invalid characters. Only alphanumeric characters, dots, colons, slashes, dashes, and underscores are allowed."
@@ -457,20 +431,12 @@ check_backup_config() {
 # Install the kiosk setup
 install_kiosk() {
     # Prompt user for necessary inputs
-    prompt_user HA_IP "Enter the IP address of your Home Assistant instance" ""
-    prompt_user HA_PORT "Enter the port for Home Assistant" "8123"
-    prompt_user HA_DASHBOARD_PATH "Enter the path to your Home Assistant dashboard" "lovelace/default_view"
+    prompt_user KIOSK_URL "Enter the URL for your Kiosk." "https://google.com"
 
-    # Kiosk mode and cursor settings
-    prompt_user enable_kiosk "Do you want to enable kiosk mode? (Y/n)" "Y"
+    # Cursor settings
     prompt_user hide_cursor "Do you want to hide the mouse cursor? (Y/n)" "Y"
 
-    KIOSK_MODE=""
-    [[ $enable_kiosk =~ ^[Yy]?$ ]] && KIOSK_MODE="?kiosk=true"
-
-    KIOSK_URL="http://$HA_IP:$HA_PORT/$HA_DASHBOARD_PATH$KIOSK_MODE"
-    echo "Your Home Assistant dashboard will be displayed at: $KIOSK_URL"
-    echo "Setting up Chromium Kiosk Mode for Home Assistant URL:$KIOSK_URL"
+    echo "Setting up Chromium Kiosk Mode for URL: $KIOSK_URL"
 
     # Check for existing auto-login configuration
     if [ -f "/etc/systemd/system/getty@tty1.service.d/override.conf" ]; then
@@ -500,13 +466,13 @@ EOF
     fi
 
     # Check for existing kiosk startup script
-    if [ -f "/usr/local/bin/ha-chromium-kiosk.sh" ]; then
-        check_backup_config "/usr/local/bin/ha-chromium-kiosk.sh" "kiosk startup script"
+    if [ -f "/usr/local/bin/chromium-kiosk.sh" ]; then
+        check_backup_config "/usr/local/bin/chromium-kiosk.sh" "kiosk startup script"
     fi
 
     # Create the kiosk startup script
     echo "Creating the kiosk startup script..."
-    cat <<EOF >/usr/local/bin/ha-chromium-kiosk.sh
+    cat <<EOF >/usr/local/bin/chromium-kiosk.sh
 #!/bin/bash
 
 # Disable screen blanking
@@ -517,57 +483,9 @@ xset s noblank
 # Optionally hide the mouse cursor
 EOF
 
-    [[ $hide_cursor =~ ^[Yy]?$ ]] && echo "unclutter -idle 0 &" >>/usr/local/bin/ha-chromium-kiosk.sh
+    [[ $hide_cursor =~ ^[Yy]?$ ]] && echo "unclutter -idle 0 &" >>/usr/local/bin/chromium-kiosk.sh
 
-    cat <<EOF >>/usr/local/bin/ha-chromium-kiosk.sh
-
-check_network() {
-    local max_attempts=30  # Maximum number of attempts (30 * 2 seconds = 1 minute timeout)
-    local attempt=0
-    local success=false
-
-    echo "Checking if Home Assistant is reachable at $HA_IP:$HA_PORT..."
-
-    # Check if netcat is installed
-    if ! command -v nc &> /dev/null; then
-        echo "Warning: netcat (nc) is not installed. Cannot check network connectivity."
-        echo "Installing netcat..."
-        apt-get update > /dev/null 2>&1
-        apt-get install -y netcat-openbsd > /dev/null 2>&1
-
-        if ! command -v nc &> /dev/null; then
-            echo "Failed to install netcat. Skipping network check."
-            return 1
-        fi
-    fi
-
-    while [ $attempt -lt $max_attempts ] && [ "$success" = "false" ]; do
-        if nc -z -w 5 "$HA_IP" "$HA_PORT" 2>/dev/null; then
-            success=true
-            echo "Connection to Home Assistant established!"
-        else
-            attempt=$((attempt + 1))
-            if [ $attempt -lt $max_attempts ]; then
-                echo "Attempt $attempt of $max_attempts: Home Assistant not reachable yet. Retrying in 2 seconds..."
-                sleep 2
-            else
-                echo "Warning: Could not connect to Home Assistant after $max_attempts attempts."
-                echo "The kiosk will continue to try connecting when it starts."
-                echo "Please ensure Home Assistant is running at $HA_IP:$HA_PORT"
-                return 1
-            fi
-        fi
-    done
-
-    return 0
-}
-
-if check_network; then
-    echo "Home Assistant is reachable. Starting Chromium..."
-else
-    echo "Starting Chromium anyway, will keep trying to connect to Home Assistant..."
-fi
-
+    cat <<EOF >>/usr/local/bin/chromium-kiosk.sh
 chromium \
     --noerrdialogs \
     --disable-infobars \
@@ -579,21 +497,21 @@ chromium \
     "$KIOSK_URL"
 EOF
 
-    chmod +x /usr/local/bin/ha-chromium-kiosk.sh
+    chmod +x /usr/local/bin/chromium-kiosk.sh
 
     echo "Configuring Openbox to start the kiosk script..."
-    echo "/usr/local/bin/ha-chromium-kiosk.sh &" > $OPENBOX_CONFIG_DIR/autostart
+    echo "/usr/local/bin/chromium-kiosk.sh &" > $OPENBOX_CONFIG_DIR/autostart
 
     # Check for existing systemd service
-    if [ -f "/etc/systemd/system/ha-chromium-kiosk.service" ]; then
-        check_backup_config "/etc/systemd/system/ha-chromium-kiosk.service" "systemd service"
+    if [ -f "/etc/systemd/system/chromium-kiosk.service" ]; then
+        check_backup_config "/etc/systemd/system/chromium-kiosk.service" "systemd service"
     fi
 
     # Create the systemd service
     echo "Creating the systemd service..."
-    cat <<EOF >/etc/systemd/system/ha-chromium-kiosk.service
+    cat <<EOF >/etc/systemd/system/chromium-kiosk.service
 [Unit]
-Description=Chromium Kiosk Mode for Home Assistant
+Description=Chromium Kiosk Mode
 After=systemd-user-sessions.service network-online.target
 Wants=network-online.target
 
@@ -617,7 +535,7 @@ WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    systemctl enable ha-chromium-kiosk.service
+    systemctl enable chromium-kiosk.service
 
     echo "Adding the kiosk user to the tty group..."
     usermod -aG tty $KIOSK_USER
@@ -637,12 +555,12 @@ uninstall_kiosk() {
     fi
 
     # Stop and disable the systemd service
-    echo "Stopping and disabling the ha-chromium-kiosk service..."
-    systemctl stop ha-chromium-kiosk.service && systemctl disable ha-chromium-kiosk.service
+    echo "Stopping and disabling the chromium-kiosk service..."
+    systemctl stop chromium-kiosk.service && systemctl disable chromium-kiosk.service
 
     # Check if the service was stopped and disabled successfully
     if [[ $? -ne 0 ]]; then
-        echo "Failed to stop or disable ha-chromium-kiosk service. Please check manually."
+        echo "Failed to stop or disable chromium-kiosk service. Please check manually."
         exit 1
     fi
 
@@ -672,18 +590,18 @@ uninstall_kiosk() {
 
     # Remove the systemd service file
     echo "Removing the systemd service file..."
-    if [[ -f /etc/systemd/system/ha-chromium-kiosk.service ]]; then
-        check_restore_backup "/etc/systemd/system/ha-chromium-kiosk.service" "systemd service"
-        rm -f /etc/systemd/system/ha-chromium-kiosk.service
+    if [[ -f /etc/systemd/system/chromium-kiosk.service ]]; then
+        check_restore_backup "/etc/systemd/system/chromium-kiosk.service" "systemd service"
+        rm -f /etc/systemd/system/chromium-kiosk.service
     else
         echo "No systemd service file found."
     fi
 
     # Remove the startup script
     echo "Removing the kiosk startup script..."
-    if [[ -f /usr/local/bin/ha-chromium-kiosk.sh ]]; then
-        check_restore_backup "/usr/local/bin/ha-chromium-kiosk.sh" "kiosk startup script"
-        rm -f /usr/local/bin/ha-chromium-kiosk.sh
+    if [[ -f /usr/local/bin/chromium-kiosk.sh ]]; then
+        check_restore_backup "/usr/local/bin/chromium-kiosk.sh" "kiosk startup script"
+        rm -f /usr/local/bin/chromium-kiosk.sh
     else
         echo "No kiosk startup script found."
     fi
@@ -756,7 +674,7 @@ uninstall_kiosk() {
         echo "No installed packages list found."
     fi
 
-    echo "Uninstallation complete. The HA Chromium Kiosk setup has been removed."
+    echo "Uninstallation complete. The Chromium Kiosk setup has been removed."
 }
 
 ## SCRIPT STARTS HERE
