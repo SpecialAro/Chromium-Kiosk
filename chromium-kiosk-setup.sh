@@ -310,7 +310,7 @@ check_remove_user() {
         read -p "The kiosk user exists. Do you want to remove the user? (Y/n): " remove_user
         if [[ $remove_user =~ ^[Yy]?$ ]]; then
             echo "Removing the kiosk user..."
-            killall -u "$KIOSK_USER"
+            pkill -u "$KIOSK_USER"
             userdel -rf "$KIOSK_USER"
         else
             echo "The kiosk user was not removed."
